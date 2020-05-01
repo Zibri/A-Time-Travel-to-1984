@@ -1,0 +1,254 @@
+A time travel to 1984.
+By Piergiorgio "Zibri" Zambrini.
+zibri [at] zibri [dot] org
+[working copy - work in progress]
+
+						PREFACE
+
+  A long time ago, in 1984, I was a 14 year old kid who,
+as many kids of the time, owned a Commodore 64 computer.
+  I was at my first steps in computing so, at the time,
+I mainly played with programs made by others and started
+coding some simple programs in BASIC language and then
+I moved my first steps in machine code programming.
+  That year a lot of games were released including the one
+that became my most played game of all time: Archon!
+  Archon was a perfect balance between a board strategy
+game (like chess or checkers) and an arcade game.
+  Only one of my friends had the original disk and I 
+couldn't find one to buy anywhere at the time, so 
+we needed to copy his disk for me to play in
+my home and not only when visiting him.
+  The problem was that Archon was protected against copy
+and at the time there seemed to be no way to do it.
+  You could make a disk copy but then the copy won't
+start. It was frustrating: hours and hours of copying with
+different programs (each one took between 30 to 50 minutes 
+to make the copy) then more than 3 minutes to load it
+and some more minutes of cursing because no copy worked.
+  At the third day of trying we finally succeeded making a
+working copy using the program "disk mimic" who took
+45 minutes to make it.
+  After some time (maybe an year) I also found there was a
+cracked version made by "Du.o": all protection were removed
+and it was just a single file to load and run.
+  At that time, people like "Du.o" were "wizards" and I started
+only years later to reverse engineer software and hardware.
+  Yesterday, instead, I had this thought: could I have done it?
+  So I made a challenge to myself to crack Archon by using
+only the tools I had at the time: no tricks, no internet, the
+ROM Kernel manual, a disassembler, a full commented memory map
+of the C64 and a bunch of papers and notes filled with infos
+about the C64 and 6502 assembler.
+
+CHAPTER 1
+Back to 1984!
+
+  Ok, so, I fasten my seatbelt, turn on the flux capacitor and
+reach 88 mph: back to 1984!!!
+
+        [back to the future music kicks in]
+
+  Here I am, in my own room with these items in front of me:
+the brand new Commodore 64 brown label, on the right there is the
+Commodore 1541 disk drive and some disks with the most common
+softwares and utilities; on the floor the Commodore ROM Kernel manual
+and between the table and other furnitures a bunch of papers with
+memory maps, notes of previous studies, basic listings, assembler
+program printouts and a rotary phone.
+  So I insert the "original" disk of Archon in the drive and I
+issue the usual LOAD"*",8,1. It starts automatically!!!
+  The drive starts spinning, then stops, then starts again and a
+big full screen ECA (Electronic "Computer" Arts) logo appears on the screen starting
+to cycle the foreground color as the drive head slowly steps from track 1.
+  Two minutes have passed and now the logo is changing colors all at once
+and by the sound I can tell the disk head is going back and forth of
+one track then half track then half again then one and then 
+everything stops. Damn, it must be using FAT tracks, that's why it could not
+easily be copied!
+  At this point adrenaline starts rushing because here is were the
+copies of the original were stopping and starting again from the beginning
+without ever letting you play, but if the disk was copied with the right
+program (disk mimic) and patience (45 minutes) then the game would start.
+  And so it does! The superb music starts playing and the program name is
+bouncing down from the top of the screen!
+  Now, the urge to play a game is impossible to resist so I grab my competition
+pro 5000 joystick and kick the computer ass.
+  As usual, despite the lower strenght, the light side wins the evil dark
+side by total annihilation and order is re-established.
+  Now back to the reason I had to "buy" plutonium from libyan shady guys:
+crack Archon so it will become a normal c64 file which i can put on tape
+or another disk, without wasting a whole disk and taking only 1 minute to load.
+
+Chapter 2
+Baby steps.
+
+  By looking at the disk directory (LOAD"$",8 then LIST) a strange thing happens:
+the screen clears and at the top you can read LOAD"EA",8,1 then a garbled line
+and the rest of the directory where there is another "EA" file (but the first has 1 
+block of lenght and the second is 11 blocks (a block on disk is 256 bytes).
+  I already know that the first "EA" file starts automatically and then loads the
+second file which is the real loader and protection checker.
+  So how to analyze here in 1984 a program that starts "automagically" ? I
+check inside the bunch of disks I have everywhere in my room...hmmm...
+  SuperMon64... that should do it! It was coded also by Steve Wozniak and I like that
+guy! But loading "ea" from supermon locks everything up because clearly it overwrites
+some vectors (for the autorun to work) so I must load it somewhere else in memory 
+and analyze it from there.
+  From SuperMon64 I issue the command L"EA",8,$4000 and then m $4000 but since 
+supermon uses the usual loading routines I will not know the original program loading
+address. So, back to basic and let me write a program to know the load address!
+
+10 open 1,8,2,"ea"
+20 get#1,a$:a=asc(a$+chr$(0))
+30 get#1,b$:b=asc(b$+chr$(0))
+40 print "load address is: "+str$(a+b*256)
+50 close 1
+
+Address is 680 ! (I supposed something like this)
+
+Back to supermon64:
+
+L"EA",8,$22a8 (680 in hex is $2a8 so I load it $2000 bytes higher)
+at $22b0 the basic token for load followed by "EA",8,1..wtf?
+
+(The reason is that if I do  LOAD"EA",8 I will have a basic program 
+that loads itself using ,8,1. Elegant. Quite useless, but elegant.)
+
+The real program seems to start at $2b8; let me see it:
+
+d $22b8
+. 22b8  a9 08    lda #$08  ; put 8 in A
+. 22ba  aa       tax       ; transfer A to X (so A=X=8)
+. 22bb  a0 01    ldy #$01  ; put 1 in y
+. 22bd  20 ba ff jsr $ffba ; this is the equivalent of ",8,1" in a load statement
+. 22c0  a9 04    lda #$04  ; file name length = 4
+. 22c2  a2 ed    ldx #$ed  ; low byte of filename address  ($2ED)
+. 22c4  a0 02    ldy #$02  ; high byte of filename address ($2ED)
+. 22c6  20 bd ff jsr $ffbd ; set file name
+. 22c9  a9 00    lda #$00  ; A=0
+. 22cb  85 9d    sta $9d   ; put 0 in location $9d which disables output
+. 22cd  20 d5 ff jsr $ffd5 ; LOAD so it will load "EA"][",8,1
+. 22d0  b0 03    bcs $22d5 ; on error jump to $2d5
+. 22d2  4c 00 c0 jmp $c000 ; jump to the loader loaded at $c000
+. 22d5  a9 05    lda #$05
+. 22d7  8d 00 04 sta $0400
+. 22da  a9 12    lda #$12
+. 22dc  8d 01 04 sta $0401
+. 22df  8d 02 04 sta $0402
+. 22e2  8d 04 04 sta $0404
+. 22e5  a9 0f    lda #$0f
+. 22e7  8d 03 04 sta $0403 ; prints ERROR byte by byte on screen
+. 22ea  4c b8 02 jmp $02b8 ; start again (retry)
+. 22ed  45 41    eor $41   ; first 2 bytes of file name: EA
+. 22ef  22       ???       ; third byte of the file name is "
+. 22f0  9d 98 d2 sta $d298,x ; fourth and last byte of file name is the graphic character $9D
+. 22f3  d4       ???
+. 22f4  d4       ???
+. 22f5  d3       ???
+. 22f6  d3       ???
+
+Hmmm so? All this mess and half an hour spent to learn what?
+To learn that all EA file does is to mess up a bunch of vectors,
+to avoid newbies to break to basic, and autorun itself, then
+
+LOAD"EA"[]",8,1
+
+and then
+
+SYS49152
+
+I will now test the theory: yep! It started loading the game with the
+usual majestic ECA logo! The game works so it does not bother
+that I run it manually instead of using it's own loader!
+AND THIS IS THEIR FIRST MISTAKE!
+
+Chapter 3
+Let's start walking!
+
+  Until now I learned that the real loader is the second semi-hidden
+11 blocks file on the disk. So I can fire my SuperMon64 and start
+the analysis!
+  Since I'm lazy, to load the hidden program I will just use:
+  LOAD"EA??",8,1 and then run SuperMon64+
+
+  What a mess! I am doomed! Most of the code appears as nonsense!
+
+  Not everywhere anyways! This will take time, but wait! I have a hunch!
+  
+  Whatever is the protection, at a certain point, if they were
+naive enough, they should jump out of the $c000-$cfff area to run
+the game, so I am going to search for all jump instructions in the loader
+and see if I am lucky!
+
+h c000 d000 4c
+
+  Hmm there are only 46 occurrences of the JMP instruction ($4c) or anyway
+there are 46 occurrences of the number $4c. A few checks after.... BINGO!
+  The one at $c26c looks promising: JMP $6100! Don't tell me I am so lucky
+and they were so dumb! I must check it immediately!
+
+[Shout "IT CAN WORK!" in "young frankenstein" voice]
+
+By putting $fce2 instead of $6100 it should jump to the cold start, hopefully.
+
+load "ea"+chr$(34)+chr$(157),8,1
+poke 49773,226
+poke 49774,252  
+sys 49152
+
+  I can't believe it: after 3 minutes of the usual loading we have again
+a READY prompt! Strange though, we should have the commodore usual banner,
+will the game start?  SYS 24832 (which is the decimal form of $6100)
+
+.... BOOM! IT'S ALIIIVEEEEE!!!! IT WORKS!!!!!
+
+  Having the JMP $6100 not obfuscated in any way WAS THEIR SECOND MISTAKE!
+
+  Now, the problem is that I have to dump everything possible and repackage
+an executable file.
+  I am so tired, time travel is tiring (a few people know that) and at 03:00
+I am calling a time-out to have some food and sleep and I will continue
+tomorrow after a good night in my old beloved bed.
+
+Chapter 4
+Time for a RUN!
+
+  After a good and short night sleep (adrenaline and serotonin do this!),
+I woke up with a simple idea in my mind: what I need is just to write a
+program that:
+
+1) disables the BASIC memory
+2) writes sys 24832 in basic at $801
+3) saves everything from $801 to $bfff
+
+then modify the jump in the loader to execute it!
+
+  And here we go: a few minutes (i.e. hours to be honest) I wrote the code
+then I found the unused space in $c000-$cfff area and picked up $CAFE (hehehe)
+for my code!
+  Everything worked but then, as usual, I thought: why not adding some more code
+so the user must do the less possible? Computers are born for that! So I also
+added a routine that loads the "EA"][" loader, patches it and then run it!
+  Since programming never ends, I also added a routine to let the user choose on 
+which drive (8 or 9) to save the result.
+  And now we RUN! :D
+  Everything works: now I have an "ARCHON.PRG" file on my new floppy in drive 9.
+
+Chapter 5
+Back to the future.
+
+  After the usual DeLorean drive, I am back in 2020, in a world paralyzed
+and frightened by a mass and social-media-amplified virus which would have
+sounded like science fiction back in 1984 :/
+  Fortunately, I live 80 meters from the best coral reef in the world, the 
+weather is nice as always and everything seems better.
+  Unfortunately, this time travel was a figment of my imagination otherwise
+I would probably have spent most of the time with my mother, who I miss since
+1993, and yesterday, the 23rd of April was her birthday.
+  At least this was a way to remember those times when I could still hug her
+between a match of Archon and an episode of Jeeg Robot.
+
+Dedicated to Ada and to all the friends I am writing this for, yes, YOU included.
+
+Zibri/RamJam
