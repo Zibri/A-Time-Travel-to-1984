@@ -30,7 +30,7 @@ and some more minutes of cursing because no copy worked.
 working copy using the program "disk mimic" who took
 45 minutes to make it.
   After some time (maybe an year) I also found there was a
-cracked version made by "Du.o": all protection were removed
+cracked version made by "Du.o": all protections were removed
 and it was just a single file to load and run.
   At that time, people like "Du.o" were "wizards" and I started
 only years later to reverse engineer software and hardware.
